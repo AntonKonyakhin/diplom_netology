@@ -31,7 +31,7 @@ gitlabrunner.tf  - gitlab.runnerultra.ru, runner.runnerultra.ru
 monitoring.tf  - monitoring.runnerultra.ru  
 wordpress.tf  - app.runnerultra.ru  
 
-### переменные для ansible формируются автоматически в файде:  
+### переменные для ansible формируются автоматически в файле:  
 inventory.tf
 Этот  файл так же формирует автоматически скрипт для создания поста через ci\cd по наличию тега  
 
@@ -68,7 +68,7 @@ https://alertmanager.runnerultra.ru (Alert Manager)
 4)  здесь должна быть роль конфигурирования mysql master-slave, но она сейчас описана в виде tasks в основном yml-файле - site.yml;  
 5) `php` :
     - установка необходимых компонентов php на машину app.runnerultra.ru для работы wordpress;  
-6) 'nginx-wordpress':
+6) `nginx-wordpress`:
     - установка и конфигурация nginx на машине app.runnerultra.ru;  
 7) `wordpress`:
     - установка wordpress на машину app.runnerultra.ru(в папку /var/www/wordpress2/html);  
@@ -99,8 +99,6 @@ https://github.com/AntonKonyakhin/diplom_netology
 ```
 export YC_CLOUD_ID=""
 export YC_FOLDER_ID=""
-export YC_STORAGE_ACCESS_KEY=""
-export YC_STORAGE_SECRET_KEY=""
 export YC_SERVICE_ACCOUNT_KEY_FILE="key.json"
 export AWS_ACCESS_KEY_ID=""
 export AWS_SECRET_ACCESS_KEY=""
@@ -128,6 +126,9 @@ YC_SERVICE_ACCOUNT_KEY_FILE
 yc iam key create --service-account-name default-sa --output key.json
 
 ```
+
+так же в файле var.tf подставить свои значения
+
 
 6) запустить команду:
 
