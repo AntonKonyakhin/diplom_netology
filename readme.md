@@ -155,34 +155,34 @@ root:mystrongpassword
 https://www.runnerultra.ru (WordPress)  
 
 
-![WordPress](/screenshot\wordpress.jpg)
+![WordPress](/screenshot/wordpress.jpg)
 
 https://gitlab.runnerultra.ru (Gitlab)  
 
-![Gitlab](/screenshot\gitlab.jpg)
+![Gitlab](/screenshot/gitlab.jpg)
 
 https://grafana.runnerultra.ru (Grafana)  
 
-![Grafana](/screenshot\grafana.jpg)
+![Grafana](/screenshot/grafana.jpg)
 
 https://prometheus.runnerultra.ru (Prometheus)  
 
-![Prometheus](/screenshot\prometheus.jpg)
+![Prometheus](/screenshot/prometheus.jpg)
 
 
 https://alertmanager.runnerultra.ru (Alert Manager) 
 
-![Alert Manager](/screenshot\alertmanager.jpg)
+![Alert Manager](/screenshot/alertmanager.jpg)
 
 
 картинку с зарегистрированным раннером
 
-![runner](/screenshot\runner.jpg)
+![runner](/screenshot/runner.jpg)
 
 картинка с pipline
 
-![runner](/screenshot\pipeline.jpg)
+![runner](/screenshot/pipeline.jpg)
 
 картинка с постом
 
-![post](/screenshot\post_ci_cd.jpg)
+![post](/screenshot/post_ci_cd.jpg)
