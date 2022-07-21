@@ -1,0 +1,297 @@
+---
+- name: Install_Nginx
+  hosts: nginx-1
+  roles:
+    - squid
+    - nginx_letsencrypt
+
+#############
+### mysql
+#################
+- name: install mysql
+  hosts: mysql
+  gather_facts: false
+  pre_tasks:
+    - name: copy proxy congig file
+      become: true
+      ansible.builtin.copy:
+        src: files/proxy.conf
+        dest: /etc/apt/apt.conf.d/proxy.conf
+        mode: "0644"
+  roles:
+    - mysql-install
+  environment:
+    http_proxy: http://{{ ip_nginx }}:3128
+    https_proxy: http://{{ ip_nginx }}:3128
+
+- name: master_mysql
+  hosts: db-01
+  tasks:
+    - name: enable remote login to mysql
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^bind-address'
+        line: 'bind-address = 0.0.0.0'
+        backup: true
+    - name: set server-id
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^server-id'
+        line: 'server-id = 1'
+        backup: true
+    - name: set log_bin
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^log_bin'
+        line: 'log_bin = /var/log/mysql/mysql-bin.log'
+        backup: true
+    - name: set do_db
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^binlog_do_db'
+        line: 'binlog_do_db = {{ db_name }}'
+        backup: true
+    - name: restart mysql master_mysql
+      become: true
+      ansible.builtin.service:
+        name: mysql
+        state: restarted
+        enabled: true
+    - name: create db
+      become: true
+      mysql_db:
+        name: '{{ db_name }}'
+        state: present
+    - name: create user db
+      become: true
+      mysql_user:
+        name: '{{ db_user }}'
+        password: '{{ db_pass }}'
+        priv: '{{ db_name }}.*:ALL'
+        host: '%'
+        state: present
+    - name: create user replication
+      become: true
+      mysql_user:
+        name: '{{ repl_user }}'
+        password: '{{ repl_pass }}'
+        priv: '*.*:REPLICATION SLAVE'
+        host: '%'
+        state: present
+    - name: mysql_replication_binlog
+      become: true
+      mysql_replication:
+        mode: getmaster
+      register: mysql_result
+    - name: print_mysql_binlog
+      debug:
+        msg:
+          - "print bin_log {{ mysql_result['File'] }}"
+          - "print position {{ mysql_result['Position'] }}"
+
+- name: "slave_mysql"
+  hosts: db-02
+  tasks:
+    - name: "check slave print status slave"
+      become: true
+      mysql_replication:
+        mode: getslave
+      register: check_get_slave
+    - name: "check check_get_slave.Master_User|length == 0"
+      debug:
+        msg:
+          - "print {{ check_get_slave.Is_Slave }}"
+
+    - name: print_mysql_binlog_for_slave
+      debug:
+        msg:
+          - "print bin_log {{ hostvars['db-01']['mysql_result']['File'] }}"
+          - "print position {{ hostvars['db-01']['mysql_result']['Position'] }}"
+      when: not check_get_slave.Is_Slave
+
+    - name: "slave create db"
+      become: true
+      mysql_db:
+        name: '{{ db_name }}'
+        state: present
+      when: not check_get_slave.Is_Slave
+
+    - name: "slave set server-id"
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^server-id'
+        line: 'server-id = 2'
+        backup: true
+      when: not check_get_slave.Is_Slave
+    - name: "slave set log_bin"
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^log_bin'
+        line: 'log_bin = /var/log/mysql/mysql-bin.log'
+        backup: true
+      when: not check_get_slave.Is_Slave
+    - name: "slave set relay_log"
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^relay_log'
+        line: 'log_bin = /var/log/mysql/mysql-relay-bin.log'
+        backup: true
+      when: not check_get_slave.Is_Slave
+    - name: "slave set do_db"
+      become: true
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^binlog_do_db'
+        line: 'binlog_do_db = {{ db_name }}'
+        backup: true
+      when: not check_get_slave.Is_Slave
+    - name: "slave restart mysql master_mysql"
+      become: true
+      ansible.builtin.service:
+        name: mysql
+        state: restarted
+        enabled: true
+      when: not check_get_slave.Is_Slave
+
+    - name: "change master to master server and use bin log_bin"
+      become: true
+      mysql_replication:
+        mode: changemaster
+        master_user: '{{ repl_user }}'
+        master_password: '{{ repl_pass }}'
+        master_host: '{{ master_host }}'
+        master_log_file: "{{ hostvars['db-01']['mysql_result']['File'] }}"
+        master_log_pos: "{{ hostvars['db-01']['mysql_result']['Position'] }}"
+      when: not check_get_slave.Is_Slave
+    - name: "slave start mysql slave_mysql"
+      become: true
+      mysql_replication:
+        mode: startslave
+      when: not check_get_slave.Is_Slave
+    - name: "slave check slave status"
+      become: true
+      mysql_replication:
+        mode: getslave
+      register: get_slave
+    - name: "slave print status slave"
+      become: true
+      debug:
+        msg:
+          - "slave status {{ get_slave }}"
+##############
+###   wordpress
+#################
+- name: "Install_wordpress"
+  hosts: wordpress
+  gather_facts: false
+  pre_tasks:
+    - name: "copy proxy config file to wordpress"
+      become: true
+      ansible.builtin.copy:
+        src: files/proxy.conf
+        dest: /etc/apt/apt.conf.d/proxy.conf
+        mode: "0644"
+  roles:
+    - php
+    - nginx-wordpress
+    - wordpress
+    - wordpress_config
+  environment:
+    http_proxy: http://{{ ip_nginx }}:3128
+    https_proxy: http://{{ ip_nginx }}:3128
+  tags:
+    - config_wp
+
+###############
+### node_exporter
+###############
+- name: "install node_exporter"
+  hosts:
+    - monitoring
+    - mysql
+    - wordpress
+    - gitlabrunner
+  gather_facts: false
+  roles:
+    - install_node_exporter
+  environment:
+    http_proxy: http://{{ ip_nginx }}:3128
+    https_proxy: http://{{ ip_nginx }}:3128
+  tags:
+    - config_node_exporter
+- name: "install node_exporter to nginx server"
+  hosts:
+    - nginx-1
+  gather_facts: false
+  roles:
+    - install_node_exporter
+  tags:
+    - config_node_exporter
+
+####################
+### prometheus
+####################
+- name: "Install_prometeus"
+  hosts: monitoring
+  gather_facts: false
+  pre_tasks:
+    - name: "copy proxy config file to wordpress"
+      become: true
+      ansible.builtin.copy:
+        src: files/proxy.conf
+        dest: /etc/apt/apt.conf.d/proxy.conf
+        mode: "0644"
+  roles:
+    - install_prometheus
+    - install_node_exporter
+    - install_alertmanager
+    - install_grafana
+  environment:
+    http_proxy: http://{{ ip_nginx }}:3128
+    https_proxy: http://{{ ip_nginx }}:3128
+  tags:
+    - config_prometeus
+####################
+### gitlab
+####################
+- name: "Install_gitlab"
+  hosts:
+    - gitlabrunner
+    - wordpress
+  pre_tasks:
+    - name: "copy proxy config file to wordpress"
+      become: true
+      ansible.builtin.copy:
+        src: files/proxy.conf
+        dest: /etc/apt/apt.conf.d/proxy.conf
+        mode: "0644"
+    - name: "gitlab to hosts gitlab-runner"
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ ip_nginx }} {{ domain_gitlab }}"
+      when:
+        - inventory_hostname == 'runner'
+    - name: "disable GIT_SSL_NO_VERIFY gitlab-runner"
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/environment
+        line: "GIT_SSL_NO_VERIFY=true"
+      when:
+        - inventory_hostname == 'runner'
+
+  roles:
+    - install_gitlab
+  environment:
+    http_proxy: http://{{ ip_nginx }}:3128
+    https_proxy: http://{{ ip_nginx }}:3128
+  tags:
+    - config_gitlab_ce
+

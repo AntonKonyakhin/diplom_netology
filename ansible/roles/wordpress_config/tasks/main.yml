@@ -1,0 +1,39 @@
+---
+# tasks file for wordpress_config
+- name: "check file wp-cli"
+  become: true
+  ansible.builtin.stat:
+    path: "/usr/local/bin/wp"
+  register:
+    result_wp
+
+- name: "donload wp-cli"
+  become: true
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+    dest: "/usr/local/bin/wp"
+    mode: "0755"
+  when: not result_wp.stat.exists
+
+- name: Is WordPress installed?
+  command: wp core is-installed
+  args:
+    chdir: "/var/www/wordpress2/html/wordpress"
+  register: wordpress_is_installed
+  ignore_errors: true
+- name: "print wordpress_is_installed"
+  debug:
+    msg:
+      - "status {{ wordpress_is_installed.rc }}"
+ 
+- name: Install WordPress tables 
+  command: wp core install
+            --url="https://www.runnerultra.ru"
+            --title="runnerultra"
+            --admin_user="admin"
+            --admin_password="admin"
+            --admin_email="admin_wp@example.com"
+  args:
+    chdir: "/var/www/wordpress2/html/wordpress"
+  when: wordpress_is_installed.rc == 1
+

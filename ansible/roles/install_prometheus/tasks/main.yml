@@ -1,0 +1,80 @@
+---
+# tasks file for install_prometheus
+- name: "Create User prometheus"
+  become: true
+  ansible.builtin.user:
+    name: prometheus
+    create_home: false
+    shell: /bin/false
+- name: "Create directories for prometheus"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+  loop:
+    - '/tmp/prometheus'
+    - '/etc/prometheus'
+    - '/var/lib/prometheus'
+- name: "Download Prometheus"
+  become: true
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz
+    dest: /tmp/prometheus
+    creates: /tmp/prometheus/prometheus-{{ prometheus_version }}.linux-amd64
+    remote_src: true
+- name: "Copy Bin Files to Prometheus"
+  become: true
+  ansible.builtin.copy: 
+    src: /tmp/prometheus/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}
+    dest: /usr/local/bin/
+    remote_src: true
+    mode: preserve
+    owner: prometheus
+    group: prometheus
+  loop:
+    - 'prometheus'
+    - 'promtool'
+- name: "Copy Conf Files to Prometheus"
+  become: true
+  ansible.builtin.copy: 
+    src: /tmp/prometheus/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}
+    dest: /etc/prometheus/
+    remote_src: true
+    mode: preserve
+    owner: prometheus
+    group: prometheus
+  loop:
+    - 'console_libraries'
+    - 'consoles'
+    - 'prometheus.yml'
+- name: "copy custom prometheus.yml"
+  become: true
+  ansible.builtin.template:
+    src: "prometheus.yuml.j2"
+    dest: "/etc/prometheus/prometheus.yml"
+    force: true
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+
+- name: "Prometheus Systemd"
+  become: true
+  ansible.builtin.template:
+    src: prometheus.service
+    dest: /etc/systemd/system/prometheus.service
+    mode: "0755"
+  notify:
+    - systemd reload
+ 
+- name: "Prometheus Start"
+  become: true
+  ansible.builtin.systemd:
+    name: prometheus
+    state: started
+    enabled: true
+  notify:
+    - restart_prometheus
+

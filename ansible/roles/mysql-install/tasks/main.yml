@@ -1,0 +1,21 @@
+---
+# tasks file for mysql-install
+- name: setup mysql
+  become: true
+  ansible.builtin.apt:
+    name: "{{item}}"
+    state: present
+    update_cache: yes
+  loop:
+    - mysql-server
+    - mysql-client
+    - python3-mysqldb
+    - libmysqlclient-dev
+
+- name: start mysql
+  become: true
+  ansible.builtin.service:
+    name: mysql
+    state: started
+    enabled: yes
+      

@@ -1,0 +1,17 @@
+server {
+        listen 80;
+        listen [::]:80;
+
+        root /var/www/{{ domain_grafana }}/html;
+        index index.html index.htm index.nginx-debian.html;
+
+        server_name {{ domain_grafana }} www.{{ domain_grafana }};
+
+        location / {
+                try_files $uri $uri/ =404;
+        }
+        location /.well-known/acme-challenge {
+        root /var/www/letsencrypt;
+        try_files $uri $uri/ =404;
+        }
+}

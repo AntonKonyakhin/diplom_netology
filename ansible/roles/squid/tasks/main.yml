@@ -1,0 +1,28 @@
+---
+# tasks file for squid
+- name: install squid
+  become: true
+  ansible.builtin.apt:
+    name: squid
+    state: present
+    update_cache: true
+- name: squid allow
+  become: true
+  ansible.builtin.command: sed -i 's/http_access deny all/http_access allow all/' /etc/squid/squid.conf
+- name: Allow everything and enable UFW
+  become: true
+  ufw:
+    state: enabled
+    policy: allow
+- name: squid service enabled
+  ansible.builtin.service:
+    name: squid.service
+    enabled: true
+    state: started
+- name: squid service restart
+  become: true
+  ansible.builtin.service:
+    name: squid
+    state: restarted
+
+

@@ -1,0 +1,32 @@
+---
+# tasks file for wordpress
+- name: "create folder wordpress"
+  become: true
+  ansible.builtin.file:
+    path: /var/www/wordpress2/html
+    state: directory
+    mode: "0755"
+    owner: "www-data"
+
+- name: "Download and Unarchive Wordpress"
+  become: true
+  ansible.builtin.unarchive:
+    src: https://wordpress.org/latest.tar.gz
+    dest: /var/www/wordpress2/html
+    owner: "www-data"
+    remote_src: true
+- name: "check exist file wp-config.php"
+  become: true
+  ansible.builtin.stat:
+    path: "/var/www/wordpress2/html/wordpress/wp-config.php"
+  register: result
+
+- name: "copy wp-config"
+  become: true
+  template:
+    src: wp-config.j2
+    dest: /var/www/wordpress2/html/wordpress/wp-config.php
+    owner: "www-data"
+    mode: "0644"
+  when: not result.stat.exists
+

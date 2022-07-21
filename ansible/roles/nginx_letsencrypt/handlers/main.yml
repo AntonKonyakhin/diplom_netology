@@ -1,0 +1,13 @@
+---
+# handlers file for nginx_letsencrypt
+- name: nginx-start
+  become: true
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+
+- name: nginx-restart
+  become: true
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted

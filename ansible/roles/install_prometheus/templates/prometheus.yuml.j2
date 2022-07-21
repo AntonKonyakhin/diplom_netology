@@ -1,0 +1,38 @@
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+
+  external_labels:
+      monitor: 'monitor'
+# Rules and alerts are read from the specified file(s)
+rule_files:
+  - alert_rules.yml
+
+# Alerting specifies settings related to the Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+      - targets:
+        # Alertmanager's default port is 9093
+        - localhost:9093
+
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: '{{ name_monitoring }}'
+
+    static_configs:
+      - targets: ['localhost:9100']
+  - job_name: 'nodes'
+    static_configs:
+      - targets: ['{{ ip_nginx }}:9100']
+        labels: {'host': '{{ name_runnerultra }}' }
+      - targets: ['{{ master_host }}:9100']
+        labels: {'host': '{{ name_db01 }}' }
+      - targets: ['{{ slave_host }}:9100']
+        labels: {'host': '{{ name_db02 }}' }
+      - targets: ['{{ ip_wordpress }}:9100']
+        labels: {'host': '{{ name_wp }}' }
+      - targets: ['{{ gitlab_in }}:9100']
+        labels: {'host': '{{ name_gitlab }}' }
+      - targets: ['{{ runner_in }}:9100']
+        labels: {'host': '{{ name_runner }}' }

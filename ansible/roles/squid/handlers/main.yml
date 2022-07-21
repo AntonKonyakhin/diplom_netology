@@ -1,0 +1,8 @@
+---
+# handlers file for squid
+- name: start-squid
+  become: true
+  command: systemctl start squid
+- name: enable-squid
+  become: true
+  command: systemctl enable squid

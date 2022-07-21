@@ -1,0 +1,6 @@
+---
+# handlers file for mysql-install
+- name: restart mysql
+  service:
+    name: mysql
+    state: restarted

@@ -1,0 +1,267 @@
+---
+# tasks file for nginx_letsencrypt
+  - name: install nginx
+    become: true
+    ansible.builtin.apt:
+      name: nginx
+      state: present
+      update_cache: true
+
+  - name: install letsencrypt
+    become: true
+    ansible.builtin.apt:
+      name: letsencrypt
+      state: latest
+
+  - name: folde letsencrypt
+    become: true
+    ansible.builtin.file:
+      name: /var/www/letsencrypt 
+      state: directory
+  - name: create folder runnerultra
+    become: true
+    ansible.builtin.file:
+      path: /var/www/{{ domain_main }}/html
+      state: directory
+#      mode: 777
+  - name: create file runnerultra
+    become: true
+    template:
+      src: runnerultra.j2
+      dest: /etc/nginx/sites-available/{{ domain_main }}
+  - name: cretae link runnerultra
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/{{ domain_main }}
+      dest: /etc/nginx/sites-enabled/{{ domain_main }}
+      state: link
+      force: true
+
+  - name: create file index.html runnerultra
+    become: true
+    ansible.builtin.copy:
+      src: index.html
+      dest: /var/www/{{ domain_main }}/html/index.html
+      mode: 0777
+  - name: create file index.html runnerultra
+    become: true
+    ansible.builtin.copy:
+      src: Journey_of_an_Ultra_Runner_Header_Desktop_neu_1280x1280.jpg
+      dest: /var/www/{{ domain_main }}/html/Journey_of_an_Ultra_Runner_Header_Desktop_neu_1280x1280.jpg
+      mode: 0777
+    
+
+  - name: create folder gitlab
+    become: true
+    ansible.builtin.file: 
+      path: /var/www/{{ domain_gitlab }}/html
+      state: directory
+      mode: 0777
+  - name: create file gitlab
+    become: true
+    template:
+      src: gitlab.j2
+      dest: /etc/nginx/sites-available/{{ domain_gitlab }}
+  - name: create link gitlab
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/{{ domain_gitlab }}
+      dest: /etc/nginx/sites-enabled/{{ domain_gitlab }}
+      state: link
+      force: true
+  
+  - name: create folder grafana
+    become: true
+    ansible.builtin.file: 
+      path: /var/www/{{ domain_grafana }}/html
+      state: directory
+      mode: "0777"
+  - name: create file grafana
+    become: true
+    template:
+      src: grafana.j2
+      dest: /etc/nginx/sites-available/{{ domain_grafana }}
+  - name: cretae link grafana
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/{{ domain_grafana }}
+      dest: /etc/nginx/sites-enabled/{{ domain_grafana }}
+      state: link
+      force: yes
+
+  - name: create folder prometeus
+    become: true
+    ansible.builtin.file: 
+      path: /var/www/{{ domain_prometheus }}/html
+      state: directory
+      mode: "0777"  
+  - name: create file prometeus
+    become: true
+    template:
+      src: prometeus.j2
+      dest: /etc/nginx/sites-available/{{ domain_prometheus }}
+  - name: cretae link prometeus
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/{{ domain_prometheus }}
+      dest: /etc/nginx/sites-enabled/{{ domain_prometheus }}
+      state: link
+      force: true
+
+  - name: create folder alertmanager
+    become: true
+    ansible.builtin.file: 
+      path: /var/www/{{ domain_alertmanager }}/html
+      state: directory
+      mode: "0777"
+  - name: create file alertmanager
+    become: true
+    template:
+      src: alertmanager.j2
+      dest: /etc/nginx/sites-available/{{ domain_alertmanager }}
+  - name: cretae link alertmanager
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/{{ domain_alertmanager }}
+      dest: /etc/nginx/sites-enabled/{{ domain_alertmanager }}
+      state: link
+      force: true
+  - name: echo
+    ansible.builtin.command: echo "1"
+    notify: nginx-restart
+  - name: nginx_start
+    meta: flush_handlers
+
+  - name: Create letsencrypt certificate
+    become: true
+    shell: "letsencrypt certonly -n --webroot -w /var/www/letsencrypt \
+           -m {{ letsencrypt_email }} --agree-tos \
+           -d {{ domain_www }} \
+           -d {{ domain_prometheus }} \
+           -d {{ domain_alertmanager }} \
+           -d {{ domain_gitlab }} \
+           -d {{ domain_grafana }}"
+    args:
+      creates: /etc/letsencrypt/live/{{ domain_main }}
+
+  - name: Generate dhparams
+    become: true
+    shell: openssl dhparam -out /etc/nginx/dhparams.pem 2048
+    args:
+      creates: /etc/nginx/dhparams.pem
+
+  - name: create https file runnerultra
+    become: true
+    template:
+      src: runnerultra_le.j2
+      dest: /etc/nginx/sites-available/runnerultra_le
+  - name: cretae link https runnerultra
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/runnerultra_le
+      dest: /etc/nginx/sites-enabled/{{ domain_main }}
+      state: link
+      force: true
+  - name: "remove old config runnerultra"
+    become: true
+    ansible.builtin.file:
+      path: /etc/nginx/sites-available/{{ domain_main }}
+      state: absent
+  - name: "copy default config"
+    become: true
+    template:
+      src: default.j2
+      dest: /etc/nginx/sites-available/default
+      mode: "0644"
+      force: true
+########
+### prometeus
+########
+  - name: "create https file prometheus"
+    become: true
+    template:
+      src: prometheus_le.j2
+      dest: /etc/nginx/sites-available/prometheus_le
+  - name: "cretae link https prometheus"
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/prometheus_le
+      dest: /etc/nginx/sites-enabled/{{ domain_prometheus }}
+      state: link
+      force: true
+  - name: "remove old config prometheus"
+    become: true
+    ansible.builtin.file:
+      path: /etc/nginx/sites-available/{{ domain_prometheus }}
+      state: absent
+#############
+### alertmanager
+#############
+  - name: "create https file alertmanager"
+    become: true
+    template:
+      src: alertmanager_le.j2
+      dest: /etc/nginx/sites-available/alertmanager_le
+  - name: "cretae link https alertmanager"
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/alertmanager_le
+      dest: /etc/nginx/sites-enabled/{{ domain_alertmanager }}
+      state: link
+      force: true
+  - name: "remove old config alertmanager"
+    become: true
+    ansible.builtin.file:
+      path: /etc/nginx/sites-available/{{ domain_alertmanager }}
+      state: absent
+#############
+### grafana
+#############
+  - name: "create https file grafana"
+    become: true
+    template:
+      src: grafana_le.j2
+      dest: /etc/nginx/sites-available/grafana_le
+  - name: "cretae link https alertmanager"
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/grafana_le
+      dest: /etc/nginx/sites-enabled/{{ domain_grafana }}
+      state: link
+      force: true
+  - name: "remove old config grafana"
+    become: true
+    ansible.builtin.file:
+      path: /etc/nginx/sites-available/{{ domain_grafana }}
+      state: absent
+#############
+### gitlab
+#############
+  - name: "create https file gitlab"
+    become: true
+    template:
+      src: gitlab_le.j2
+      dest: /etc/nginx/sites-available/gitlab_le
+  - name: "cretae link https gitlab"
+    become: true
+    ansible.builtin.file:
+      src: /etc/nginx/sites-available/gitlab_le
+      dest: /etc/nginx/sites-enabled/{{ domain_gitlab }}
+      state: link
+      force: true
+  - name: "remove old config gitlab"
+    become: true
+    ansible.builtin.file:
+      path: /etc/nginx/sites-available/{{ domain_gitlab }}
+      state: absent
+
+
+  - name: "restart nginx for default config"
+    become: true
+    ansible.builtin.service:
+      name: nginx
+      state: restarted
+
+
+  - name: nginx-restart
+    meta: flush_handlers

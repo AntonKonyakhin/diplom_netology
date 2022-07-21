@@ -1,0 +1,269 @@
+---
+# tasks file for install_gitlab
+- name: "install prereq"
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    update_cache: true
+    state: present
+  loop:
+    - curl
+    - openssh-server
+    - ca-certificates
+    - tzdata
+    - perl
+    - wget
+  when:
+    - inventory_hostname == "gitlab"
+
+- name: "check gitlab installed"
+  stat:
+    path: /etc/gitlab
+  register: check_gitlab
+  when:
+    - inventory_hostname == "gitlab"
+
+- name: "download script"
+  ansible.builtin.get_url:
+    url: "https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh"
+    dest: "/tmp/gitlab-script.deb.sh"
+    mode: "0755"
+  when:
+    - inventory_hostname == "gitlab"
+    - "not check_gitlab.stat.exists"
+
+- name: "run script"
+  become: true
+  command: "/tmp/gitlab-script.deb.sh"
+  when:
+    - inventory_hostname == "gitlab"
+    - "not check_gitlab.stat.exists"
+
+- name: "Install gitlab-ce"
+  become: true
+  ansible.builtin.apt:
+    name: gitlab-ce
+    state: present
+    update_cache: true
+  register: gitlabupdate
+  when:
+    - inventory_hostname == "gitlab"
+
+# - name: "print gitlabupdate"
+#   ansible.builtin.debug:
+#     msg:
+#       - "print {{ gitlabupdate }}"
+#   when:
+#     - inventory_hostname == 'gitlab'
+  
+- name: "set gitlab root password"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "# gitlab_rails\\['initial_root_password'\\]"
+    line: gitlab_rails['initial_root_password'] = "{{ gitlab_root_password }}"
+    backup: true
+    firstmatch: true
+  when:
+    - gitlabupdate.changed
+    - inventory_hostname == 'gitlab'
+
+- name: "set gitlab registration token"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "# gitlab_rails\\['initial_shared_runners_registration_token'\\]"
+    line: gitlab_rails['initial_shared_runners_registration_token'] = "{{ reg_token_gitlab }}"
+    backup: true
+    firstmatch: true
+  when:
+    - gitlabupdate.changed
+    - inventory_hostname == 'gitlab'
+
+- name: "set gitlab external url"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "external_url 'http://gitlab.example.com'"
+    line: external_url 'https://{{ domain_gitlab }}'
+    backup: true
+    firstmatch: true
+  when:
+    - gitlabupdate.changed
+    - inventory_hostname == 'gitlab'
+
+- name: "configure nginx gitlab port=80"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "# nginx['listen_port'] = nil"
+    line: "nginx['listen_port'] = 80"
+    backup: true
+    firstmatch: true
+  when:
+    - gitlabupdate.changed
+    - inventory_hostname == 'gitlab'
+
+- name: "configure nginx gitlab http"
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "# nginx['listen_https'] = nil"
+    line: "nginx['listen_https'] = false"
+    backup: true
+    firstmatch: true
+  when:
+    - gitlabupdate.changed
+    - inventory_hostname == 'gitlab'
+
+
+- name: "Configure GitLab Community Edition"
+  become: true
+  command: gitlab-ctl reconfigure
+  register: conf_gitlab_ce
+  when:
+    - gitlabupdate.changed
+    - inventory_hostname == 'gitlab'
+
+# - name: "print conf"
+#   debug:
+#     msg:
+#       - "print {{ conf_gitlab_ce }}"
+#   when:
+#     - inventory_hostname == 'gitlab'
+#############################
+# tasks for install gitlab-runner
+###############################
+- name: "check gitlabrunner installed"
+  stat:
+    path: /etc/gitlab-runner
+  register: check_gitlabrunner
+  when:
+    - inventory_hostname == "runner"
+
+- name: "download script gitlabrunner"
+  ansible.builtin.get_url:
+    url: "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh"
+    dest: "/tmp/gitlabrunner-script.deb.sh"
+    mode: "0755"
+  when:
+    - inventory_hostname == "runner"
+    - not check_gitlabrunner.stat.exists
+
+- name: "run script gitlabrunner"
+  become: true
+  command: "/tmp/gitlabrunner-script.deb.sh"
+  when:
+    - inventory_hostname == "runner"
+    - not check_gitlabrunner.stat.exists
+
+- name: "install gitlabrunner"
+  become: true
+  ansible.builtin.apt:
+    name: gitlab-runner
+    state: present
+    update_cache: true
+  register: gitlabrunner_val
+  when:
+    - inventory_hostname == "runner"
+    - not check_gitlabrunner.stat.exists
+
+- name: "check registration gitlabrunner"
+  become: true
+  command: "gitlab-runner verify --name 'shell-runner'"
+  register: check_registration_gitlabrunner
+  ignore_errors: true
+  when:
+    - inventory_hostname == 'runner'
+  
+- name: "print check registration gitlabrunner"
+  become: true
+  debug:
+    msg:
+      - "print {{ check_registration_gitlabrunner.rc }}"
+  when:
+    - inventory_hostname == 'runner'
+
+- name: "registration gitlabrunner"
+  become: true
+  command: "gitlab-runner register --non-interactive \
+            --name 'shell-runner' \
+            --url http://{{ gitlab_in }} --registration-token {{ reg_token_gitlab }} \
+            --executor shell \
+            --tag-list 'dev_shell' \
+            --run-untagged='true'"
+  when:
+    - inventory_hostname == 'runner'
+    - check_registration_gitlabrunner.rc == 1
+
+
+#######
+### test
+########
+- name: Ensure .ssh dir exists
+  become: true
+  ansible.builtin.file:
+    path: /home/gitlab-runner/.ssh
+    state: directory
+    owner: gitlab-runner
+    group: gitlab-runner
+    mode: '0700'
+  when:
+    - inventory_hostname == 'runner'
+
+- name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+  become: true
+  openssh_keypair:
+    path: /home/gitlab-runner/.ssh/id_rsa
+    owner: gitlab-runner
+    group: gitlab-runner
+    state: present
+  when:
+    - inventory_hostname == 'runner'
+
+
+- name: Save source host public key
+  become: true
+  ansible.builtin.slurp:
+    src: /home/gitlab-runner/.ssh/id_rsa.pub
+  register: source_rsa_key_encoded
+  when:
+    - inventory_hostname == 'runner'
+
+##############
+###### transfer ssh-key
+##############
+- name: Read source public key content
+  ansible.builtin.set_fact:
+    source_rsa_key: "{{ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode }}"
+  when:
+    - inventory_hostname == 'app'
+
+- name: "print key"
+  debug:
+    msg:
+      - "{{ hostvars['runner']['source_rsa_key_encoded']['content'] }}"
+  when:
+    - inventory_hostname == 'app'
+
+- name: "Add pub ssh key to destination host"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "/home/ubuntu/.ssh/authorized_keys"
+    line: "{{ source_rsa_key }}"
+    state: present
+    mode: '0600'
+  when:
+    - inventory_hostname == 'app'
+
+- name: "disable ecdsa on host with runner"
+  become: true
+  ansible.builtin.lineinfile:
+    path: "/etc/ssh/ssh_config"
+    line: "Host * \n \
+             StrictHostKeyChecking no \n \
+             UserKnownHostsFile=/dev/null"
+    state: present
+  when:
+    - inventory_hostname == 'runner'
+

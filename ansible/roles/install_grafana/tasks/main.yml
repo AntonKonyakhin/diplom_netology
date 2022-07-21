@@ -1,0 +1,98 @@
+---
+# tasks file for install_grafana
+- name: "Install nessesary package"
+  become: true
+  ansible.builtin.apt:
+      name: apt-transport-https
+      state: present
+      update_cache: true
+- name: "add gpg key grafana"
+  become: true
+  ansible.builtin.apt_key:
+      url: "https://packages.grafana.com/gpg.key"
+      state: present
+
+- name: "add grafana repo"
+  become: true
+  ansible.builtin.apt_repository:
+      repo: "deb https://packages.grafana.com/oss/deb stable main"
+      state: present
+      filename: grafana
+
+- name: "Install grafana"
+  become: true
+  ansible.builtin.apt:
+      name: grafana
+      state: present
+      update_cache: true
+
+- name: "connect to prometheus"
+  become: true
+  ansible.builtin.template:
+      src: templates/prometheus.j2
+      dest: /etc/grafana/provisioning/datasources/prometheus.yml
+      owner: grafana
+      group: grafana
+      mode: "0755"
+
+- name: "Enable and start grafana service"
+  become: true
+  ansible.builtin.service:
+      name: grafana-server
+      enabled: true
+      state: started
+- name: wait service up
+  ansible.builtin.uri:
+      url: "https://grafana.runnerultra.ru"
+      status_code: 200
+      validate_certs: no
+  register: __result
+  until: __result.status == 200
+  retries: 120
+  delay: 1
+- name: "check status grafana"
+  ansible.builtin.debug:
+      msg:
+          - "{{ __result }}"
+
+
+- name: change admin password
+  become: true
+  shell: "grafana-cli admin reset-admin-password {{ grafana_admin_password }}"
+  register: __command_admin
+  changed_when: __command_admin.rc !=0
+
+- name: "change password"
+  become: true
+  ansible.builtin.lineinfile:
+      path: /etc/grafana/grafana.ini
+      regexp: "{{ item.before  }}"
+      line: "{{ item.after }}"
+  with_items:
+    - { before: "^;admin_user = admin", after: "admin_user = {{ grafana_admin_user }}"}
+    - { before: "^;admin_password = admin", after: "admin_password = {{ grafana_admin_password }}"}
+
+
+- name: install node exporter dashboard
+  become: true
+  ansible.builtin.get_url:
+      url: https://raw.githubusercontent.com/rfrail3/grafana-dashboards/master/prometheus/node-exporter-full.json
+      dest: /var/lib/grafana/node-exporter.json
+      mode: "0755"
+      owner: grafana
+      group: grafana
+- name: activate dashboard
+  become: true
+  template:
+      src: dashboard-node-exporter.yml.j2
+      dest: /etc/grafana/provisioning/dashboards/dashboard-node-exporter.yml
+      mode: "0755"
+      owner: grafana
+      group: grafana
+  notify: reload_grafana
+- name: "Grafana restart"
+  become: true
+  ansible.builtin.systemd:
+      name: grafana-server
+      state: restarted
+      enabled: true

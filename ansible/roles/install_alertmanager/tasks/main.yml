@@ -1,0 +1,77 @@
+---
+# tasks file for install_alertmanager
+- name: "Create User Alertmanager"
+  become: true
+  ansible.builtin.user:
+    name: alertmanager
+    create_home: false
+    shell: /bin/false
+
+- name: "Create Directories For Alertmanager"
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: alertmanager
+    group: alertmanager
+    mode: "0755"
+  loop:
+    - '/tmp/alertmanager'
+    - '/etc/alertmanager'
+    - '/var/lib/prometheus/alertmanager'
+
+- name: "Download Alertmanager"
+  become: true
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/alertmanager/releases/download/v{{ alertmanager_version }}/alertmanager-{{ alertmanager_version }}.linux-amd64.tar.gz
+    dest: /tmp/alertmanager
+    creates: /tmp/alertmanager/alertmanager-{{ alertmanager_version }}.linux-amd64
+    remote_src: true
+
+- name: "Copy Bin Files From Unzipped to Alertmanager"
+  become: true
+  ansible.builtin.copy: 
+    src: /tmp/alertmanager/alertmanager-{{ alertmanager_version }}.linux-amd64/{{ item }}
+    dest: /usr/local/bin/
+    remote_src: true
+    mode: preserve
+    owner: alertmanager
+    group: alertmanager
+  loop:
+    - 'alertmanager'
+    - 'amtool'
+
+- name: "Copy Config File to Alertmanager"
+  become: true
+  ansible.builtin.copy: 
+    src: /tmp/alertmanager/alertmanager-{{ alertmanager_version }}.linux-amd64/alertmanager.yml
+    dest: /etc/alertmanager/
+    remote_src: true
+    mode: preserve
+    owner: alertmanager
+    group: alertmanager
+
+- name: "Alertmanager Systemd"
+  become: true
+  ansible.builtin.template:
+    src: templates/alertmanager.service
+    dest: /etc/systemd/system/
+    mode: "0755"
+  notify:
+    - systemd reload
+- name: "Alertmanager Rules"
+  become: true
+  ansible.builtin.copy:
+    src: alert.rules
+    dest: /etc/prometheus/alert_rules.yml
+    owner: prometheus
+    group: prometheus
+    mode: "0755"
+
+- name: "Systemctl Start"
+  become: true
+  ansible.builtin.systemd:
+    name: alertmanager
+    state: started
+    enabled: true
+

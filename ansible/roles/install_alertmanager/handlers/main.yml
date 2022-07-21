@@ -1,0 +1,6 @@
+---
+# handlers file for install_alertmanager
+- name: systemd reload
+  become: true
+  systemd:
+    daemon_reload: true
