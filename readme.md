@@ -24,6 +24,9 @@ gitlab.runnerultra.ru  | 4  |4| gitlab|
 runner.runnerultra.ru  | 4  |4| gitlab-runner / shell executor|
 monitoring.runnerultra.ru  | 4  |4| Prometheus, Alert Manager и Grafana|
 
+структура:
+![domain](/screenshot/structure.jpg)
+
 ### описание машин для создания через terraform в файлах:  
 main.tf  - runnerultra.ru  
 db.tf  - db01.runnerultra.ru, db02.runnerultra.ru  
