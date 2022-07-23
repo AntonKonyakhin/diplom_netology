@@ -238,11 +238,20 @@ vars:
         master_log_file: "{{ hostvars['db-01']['mysql_result']['File'] }}"
         master_log_pos: "{{ hostvars['db-01']['mysql_result']['Position'] }}"
   ```
-  - запускаепм репликацию:
+  - запускаем репликацию:
   ```
   mysql_replication:
         mode: startslave
   ```
+лог статуса, настроенного slave:
+```
+null_resource.ansible_script (local-exec): ok: [db-02] => {
+null_resource.ansible_script (local-exec):     "msg": [
+null_resource.ansible_script (local-exec):         "slave status {'queries': [], 'Slave_IO_State': 'Waiting for master to send event', 'Master_Host': '192.168.100.33', 'Master_User': 'repl', 'Master_Port': 3306, 'Connect_Retry': 60, 'Master_Log_File': 'mysql-bin.000001', 'Read_Master_Log_Pos': 1428, 'Relay_Log_File': 'epdc7c5gcb5r6nrn5d29-relay-bin.000002', 'Relay_Log_Pos': 320, 'Relay_Master_Log_File': 'mysql-bin.000001', 'Slave_IO_Running': 'Yes', 'Slave_SQL_Running': 'Yes', 'Replicate_Do_DB': '', 'Replicate_Ignore_DB': '', 'Replicate_Do_Table': '', 'Replicate_Ignore_Table': '', 'Replicate_Wild_Do_Table': '', 'Replicate_Wild_Ignore_Table': '', 'Last_Errno': 0, 'Last_Error': '', 'Skip_Counter': 0, 'Exec_Master_Log_Pos': 1428, 'Relay_Log_Space': 542, 'Until_Condition': 'None', 'Until_Log_File': '', 'Until_Log_Pos': 0, 'Master_SSL_Allowed': 'No', 'Master_SSL_CA_File': '', 'Master_SSL_CA_Path': '', 'Master_SSL_Cert': '', 'Master_SSL_Cipher': '', 'Master_SSL_Key': '', 'Seconds_Behind_Master': 0, 'Master_SSL_Verify_Server_Cert': 'No', 'Last_IO_Errno': 0, 'Last_IO_Error': '', 'Last_SQL_Errno': 0, 'Last_SQL_Error': '', 'Replicate_Ignore_Server_Ids': '', 'Master_Server_Id': 1, 'Master_UUID': '1a98233e-0a1a-11ed-a492-d00d88e28fd1', 'Master_Info_File': '/var/lib/mysql/master.info', 'SQL_Delay': 0, 'SQL_Remaining_Delay': None, 'Slave_SQL_Running_State': 'Slave has read all relay log; waiting for more updates', 'Master_Retry_Count': 86400, 'Master_Bind': '', 'Last_IO_Error_Timestamp': '', 'Last_SQL_Error_Timestamp': '', 'Master_SSL_Crl': '', 'Master_SSL_Crlpath': '', 'Retrieved_Gtid_Set': '', 'Executed_Gtid_Set': '', 'Auto_Position': 0, 'Replicate_Rewrite_DB': '', 'Channel_Name': '', 'Master_TLS_Version': '', 'Is_Slave': True, 'Is_Replica': True, 'deprecations': [{'msg': '\"getslave\" option is deprecated, use \"getreplica\" instead.', 'version': '3.0.0', 'collection_name': 'community.mysql'}, {'msg': '\"Is_Master\" and \"Is_Slave\" return values are deprecated and will be replaced with \"Is_Primary\" and \"Is_Replica\" in the next major release. Use \"Is_Primary\" and \"Is_Replica\" instead.', 'version': '3.0.0', 'collection_name': 'community.mysql'}], 'failed': False, 'changed': False}"
+null_resource.ansible_script (local-exec):     ]
+null_resource.ansible_script (local-exec): }
+
+```
 
 ### 5. Установка WordPress  
 
@@ -366,6 +375,40 @@ vars:
   - копирую настройки подключения к prometheus из файла templates/prometheus.j2 в /etc/grafana/provisioning/datasources/prometheus.yml  
   - запускаем сервис  
   - жду поднятия сайта с помощью модуля ansible.builtin.uri, жду код 200  
+  лог статуса:
+  ```
+  null_resource.ansible_script (local-exec): TASK [install_grafana : check status grafana] **********************************
+null_resource.ansible_script (local-exec): ok: [prometeus] => {
+null_resource.ansible_script (local-exec):     "msg": [
+null_resource.ansible_script (local-exec):         {
+null_resource.ansible_script (local-exec):             "attempts": 3,
+null_resource.ansible_script (local-exec):             "cache_control": "no-cache",
+null_resource.ansible_script (local-exec):             "changed": false,
+null_resource.ansible_script (local-exec):             "connection": "close",
+null_resource.ansible_script (local-exec):             "content_type": "text/html; charset=UTF-8",
+null_resource.ansible_script (local-exec):             "cookies": {
+null_resource.ansible_script (local-exec):                 "redirect_to": "%2F"
+null_resource.ansible_script (local-exec):             },
+null_resource.ansible_script (local-exec):             "cookies_string": "redirect_to=%2F",
+null_resource.ansible_script (local-exec):             "date": "Sat, 23 Jul 2022 00:04:23 GMT",
+null_resource.ansible_script (local-exec):             "elapsed": 0,
+null_resource.ansible_script (local-exec):             "expires": "-1",
+null_resource.ansible_script (local-exec):             "failed": false,
+null_resource.ansible_script (local-exec):             "msg": "OK (unknown bytes)",
+null_resource.ansible_script (local-exec):             "pragma": "no-cache",
+null_resource.ansible_script (local-exec):             "redirected": true,
+null_resource.ansible_script (local-exec):             "server": "nginx/1.14.0 (Ubuntu)",
+null_resource.ansible_script (local-exec):             "status": 200,
+null_resource.ansible_script (local-exec):             "transfer_encoding": "chunked",
+null_resource.ansible_script (local-exec):             "url": "https://grafana.runnerultra.ru/login",
+null_resource.ansible_script (local-exec):             "x_content_type_options": "nosniff",
+null_resource.ansible_script (local-exec):             "x_frame_options": "deny",
+null_resource.ansible_script (local-exec):             "x_xss_protection": "1; mode=block"
+null_resource.ansible_script (local-exec):         }
+null_resource.ansible_script (local-exec):     ]
+null_resource.ansible_script (local-exec): }
+
+  ```
   - далее устанавыливая пароль админа  
   - скачиваю дашбоар https://raw.githubusercontent.com/rfrail3/grafana-dashboards/master/prometheus/node-exporter-full.json  
   - копирую конфиг подключения дашбоарда из файла dashboard-node-exporter.yml.j2  
@@ -462,6 +505,14 @@ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode
   when:
     - inventory_hostname == 'runner'
 ```
+https://gitlab.runnerultra.ru (Gitlab)  
+
+![Gitlab](/screenshot/gitlab.jpg)
+
+картинка с зарегистрированным раннером
+
+![runner](/screenshot/runner.jpg)
+
 
 ### фалй inventory.tf  
 в этом файле создаю:  
@@ -517,6 +568,15 @@ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode
   - снова открыть сайт или обновить страницу и после этого увидим новый пост
   - чтобы изменить пост, можно добавить надпись в файл script/post-content.txt и еще раз выполнить push в гит
 
+запустил скрипт script/gitlab_push.sh, он сделал пуш в гит с тегом "v0.0.1"  
+runner по этому тегу начал работать, что и видим на картинке снизу
+
+![runner](/screenshot/pipeline.jpg)
+
+картинка с постом, который был запушен в гит в файле script/post-content.txt  
+
+![post](/screenshot/post_ci_cd.jpg)
+
 ### пользователи и пароли:  
 grafana:  
 admin:grafana
@@ -548,15 +608,3 @@ https://alertmanager.runnerultra.ru (Alert Manager)
 
 ![Alert Manager](/screenshot/alertmanager.jpg)
 
-
-картинку с зарегистрированным раннером
-
-![runner](/screenshot/runner.jpg)
-
-картинка с pipline
-
-![runner](/screenshot/pipeline.jpg)
-
-картинка с постом
-
-![post](/screenshot/post_ci_cd.jpg)
