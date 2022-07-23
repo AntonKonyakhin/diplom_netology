@@ -312,6 +312,9 @@ null_resource.ansible_script (local-exec): }
             --admin_email="admin_wp@example.com"
 
   ```
+  
+
+
 ### 6. Установка Prometheus, Alert Manager, Node Exporter и Grafana  
 машина описана в файле monitoring.tf  
 Сделал ansible-роль install_node_exporter, которую прогнал на всех узлах отдельной таской  
@@ -585,7 +588,12 @@ admin:grafana
 gitlab:
 root:mystrongpassword
 
-### скриншоты:  
+
+после тестирования, удалил ключ получения тестовых сертификатов letsencrypt --test-cert  
+еще раз запустил установку с настоящими сертификатами  
+
+### скриншоты с работающими сервисами и настоящими боевыми сертификатами
+:  
 https://www.runnerultra.ru (WordPress)  
 
 
