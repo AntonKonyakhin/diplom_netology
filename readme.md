@@ -84,7 +84,7 @@ done (1s)
 
 ![service-account](/screenshot/service-account.jpg)
 
-Создал worspace для terraform с именем stage
+Создал workspace для terraform с именем stage
 ```
 terraform workspace new stage
 ```
@@ -126,7 +126,7 @@ provider_installation {
 ru-central1-a  
 ru-central1-b  
 
-в файле vars.tf они определены как пересенные  
+в файле vars.tf они определены как переменные  
 yc_zone  
 yc_zone_2  
 
@@ -147,24 +147,32 @@ default = 20
 
 создал роль squid и nginx_letsencrypt  
 роль squid: 
-   требуется для того, чтобы машины из внутренней сети смогли попасть в интернет для установки софта. 
-   первая task выполняет установку squid.  
-   далее прописываем в файле конфигурации строку /http_access deny all/http_access allow all/' /etc/squid/squid.conf  
-   далее делвем enable сервису и перезапускаем squid
+
+   - требуется для того, чтобы машины из внутренней сети смогли попасть в интернет для установки софта. 
+
+   - первая task выполняет установку squid.  
+
+   - далее прописываем в файле конфигурации строку /http_access deny all/http_access allow all/' /etc/squid/squid.conf  
+
+   - далее делвем enable сервису и перезапускаем squid  
+
 
 роль nginx_letsencrypt:  
-   требуется для установки nginx в качестве reverse-proxy и получения ssl сертификатов от letsencrypt  
+   - требуется для установки nginx в качестве reverse-proxy и получения ssl сертификатов от letsencrypt  
    заранее подготовил файлы с конифигами для сайтов в папке templates. С перенаправление на сайты  
      https://www.runnerultra.ru (WordPress)    
      https://gitlab.runnerultra.ru (Gitlab)   
      https://grafana.runnerultra.ru (Grafana)   
      https://prometheus.runnerultra.ru (Prometheus)   
-     https://alertmanager.runnerultra.ru (Alert Manager)   
-   устанавливаем утилиты letsencrypt и nginx  
+     https://alertmanager.runnerultra.ru (Alert Manager) 
+
+   - устанавливаем утилиты letsencrypt и nginx  
    создаем папку /var/www/letsencrypt 
-   скопировал файлы с конфигами в папку /etc/nginx/sites-available  
-   сделал на них link  
-   далее получил сертификаты с помощью команды 
+
+   - скопировал файлы с конфигами в папку /etc/nginx/sites-available  
+   - сделал на них link  
+
+   - далее получил сертификаты с помощью команды 
    ```
    letsencrypt certonly -n --webroot -w /var/www/letsencrypt \
            -m {{ letsencrypt_email }} --agree-tos \
@@ -199,25 +207,28 @@ vars:
 ```
 
 далее  выполняется роль mysql-install  
-она просто устанавливает mysql на два узла  
+- она просто устанавливает mysql на два узла  
+
 далее запускается роль master_slave  
-  добавляем настройки в файл mysqld.cnf, такие как:  
+  - добавляем настройки в файл mysqld.cnf, такие как:  
   'bind-address = 0.0.0.0'  
   'server-id = 1'  
   'log_bin = /var/log/mysql/mysql-bin.log'  
   'binlog_do_db = {{ db_name }}'  
-  перезапускаем mysql  
+
+  - перезапускаем mysql  
   далее с помощью модулей ansible для mysql создаем базу и пользоателя базы, а также пользователя для репликации  
-  Далее в этой роли идет настройка узла slave
+  
+  - Далее в этой роли идет настройка узла slave
   проверяем является ли узел настроенным как slave с помощью ansible модуля mysql_replication, если нет, то продолжаем настройку.  
-  создаем базу с тем же именем, что и на мастере  
-  далее прописываем настройки в файл /etc/mysql/mysql.conf.d/mysqld.cnf  
+  - создаем базу с тем же именем, что и на мастере  
+  - далее прописываем настройки в файл /etc/mysql/mysql.conf.d/mysqld.cnf  
   'server-id = 2'  
   'log_bin = /var/log/mysql/mysql-bin.log'  
   'log_bin = /var/log/mysql/mysql-relay-bin.log'  
   'binlog_do_db = {{ db_name }}'  
-  рестартуем сервис mysql  
-  далее производим настройку с помощью модуля mysql_replication  
+  - рестартуем сервис mysql  
+  - далее производим настройку с помощью модуля mysql_replication  
   ```
   mysql_replication:
         mode: changemaster
@@ -227,7 +238,7 @@ vars:
         master_log_file: "{{ hostvars['db-01']['mysql_result']['File'] }}"
         master_log_pos: "{{ hostvars['db-01']['mysql_result']['Position'] }}"
   ```
-  запускаепм репликацию:
+  - запускаепм репликацию:
   ```
   mysql_replication:
         mode: startslave
@@ -242,7 +253,7 @@ vars:
     - nginx-wordpress  
     - wordpress  
     - wordpress_config  
-- php  
+- роль php  
   с помощью этой роли устанавливаем необходимые компоненты для wordpress:  
     - php-cli
     - php-fpm
@@ -255,33 +266,33 @@ vars:
     - php-soap
     - php-xml
     - php-xmlrpc
-    - php-zip
-далее перезапускаем php-fpm  
+    - php-zip  
+ - далее перезапускаем php-fpm  
 
-- nginx-wordpress  
-  устанавливает nginx и копирует файл конфигурации из папки в папку  
-  настраивает nginx на порт 80 и и папку с wordpress /var/www/wordpress2/html/wordpress  
+- роль nginx-wordpress  
+  - устанавливает nginx и копирует файл конфигурации из папки в папку  
+  - настраивает nginx на порт 80 и и папку с wordpress /var/www/wordpress2/html/wordpress  
   и открыввает сраницу, если к нему обратились по ip адресу  server_name {{ ip_wordpress }};
 
-- wordpress  
-  этой ролью создаю папку /var/www/wordpress2/html  
+- роль wordpress  
+  - этой ролью создаю папку /var/www/wordpress2/html  
   далее с помощью модуля ansible.builtin.unarchive  скачиваем и распаковываем wordpress
-  выдаем права для пользователя www-data  
-  далее проверяю наличие файла /var/www/wordpress2/html/wordpress/wp-config.php, если его нет, то копирую файл из wp-config.j2  
-  в этом файле wp-config.php настройки подключения к базе, там же прописана настройка, чтобы сайт работал по https:  
+  - выдаем права для пользователя www-data  
+  - далее проверяю наличие файла /var/www/wordpress2/html/wordpress/wp-config.php, если его нет, то копирую файл из wp-config.j2  
+  - в этом файле wp-config.php настройки подключения к базе, там же прописана настройка, чтобы сайт работал по https:  
   $_SERVER['HTTPS']='on';  
-  важно эту настройку прописать до этой строчки:  
+  - важно эту настройку прописать до этой строчки:  
   /* That's all, stop editing! Happy publishing. */  
   так как, если ее прочитать, то становится понятно, что если добавить настройку в конец файла, то настройка не применится  
   
 
 
-- wordpress_config  
-  эту роль для конфигурации wordpress через wp-cli  
+- роль wordpress_config  
+  - эту роль для конфигурации wordpress через wp-cli  
   скачивается утилита wp в папку /usr/local/bin/wp"  
   далее проверяю установлен ли wordpress в папку /var/www/wordpress2/html/wordpress:  
   wp core is-installed  
-  если не установлен, то запускаю команду утановки wordpress:  
+  - если не установлен, то запускаю команду утановки wordpress:  
   ```
   - name: Install WordPress tables 
     command: wp core install
@@ -295,21 +306,21 @@ vars:
 ### 6. Установка Prometheus, Alert Manager, Node Exporter и Grafana  
 машина описана в файле monitoring.tf  
 Сделал ansible-роль install_node_exporter, которую прогнал на всех узлах отдельной таской  
-install_node_exporter  
-  скачиваем и копируем node-exporter сюда /usr/local/bin/node_exporter  с правами для созданного пользователя  
-  подготовил Unit файл для запуска node_exporter как сервис, в файле templates/init.service.j2. 
-  стартуем сервис  
+роль install_node_exporter  
+  - скачиваем и копируем node-exporter сюда /usr/local/bin/node_exporter  с правами для созданного пользователя  
+  - подготовил Unit файл для запуска node_exporter как сервис, в файле templates/init.service.j2. 
+  - стартуем сервис  
 
 роль install_prometheus для машины monitoring  
-  создаю пользователя prometheus и групппу prometheus для запуска сервиса  
-  создал Unit файл для запуска prometheus как скрвис, файл prometheus.service  
-  создал файл с настройками мониторинга prometheus.yuml.j2, куда записал узлы и где прописаны правила:  
-  правила в файле:  
+  - создаю пользователя prometheus и групппу prometheus для - запуска сервиса  
+  - создал Unit файл для запуска prometheus как скрвис, файл prometheus.service  
+  - создал файл с настройками мониторинга prometheus.yuml.j2, куда записал узлы и где прописаны правила:  
+  - правила в файле:  
   ```yml
   rule_files:
     - alert_rules.yml
   ```
-  узлы
+  - узлы
   ```yml
   scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
@@ -333,32 +344,32 @@ install_node_exporter
         labels: {'host': '{{ name_runner }}' }
 
   ```
-  скачиваю prometheus и копирую утилиты в соответствующие папки  
+  - скачиваю prometheus и копирую утилиты в соответствующие папки  
   prometheus, promtool в папку /usr/local/bin/  
   console_libraries, consoles, prometheus.yml в папку /etc/prometheus/  
-  копирую кастомные prometheus.yml и Unit файл  
+  - копирую кастомные prometheus.yml и Unit файл  
   стартую сервис prometheus  
 
 роль install_alertmanager  
-  заранее подготовил файлы alertmanager.service и файл с правилами alert.rules  
-  этой ролью создаю пользователя и группу для запуска сервиса  
-  скачиваю с сайта утилиту alertmanager  
-  копирую файлы alertmanager.service и файл с правилами alert.rules  
-  стартую сервис alertmanager  
+  - заранее подготовил файлы alertmanager.service и файл с правилами alert.rules  
+  - этой ролью создаю пользователя и группу для запуска сервиса  
+  - скачиваю с сайта утилиту alertmanager  
+  - копирую файлы alertmanager.service и файл с правилами alert.rules  
+  - стартую сервис alertmanager  
 
 роль install_grafana  
-  заранее подготовил файл для подключения дашборда по пути path: /var/lib/grafana/node-exporter.json  и к prometheus  
-  устанавливаем необходимый компонент apt-transport-https  
+  - заранее подготовил файл для подключения дашборда по пути path: /var/lib/grafana/node-exporter.json  и к prometheus  
+  - устанавливаем необходимый компонент apt-transport-https  
   копируем gpg ключ с помощью модуля ansible.builtin.apt_key  
-  добавляем рупозиторий grafana с помощью модуля  ansible.builtin.apt_repository  
-  производим установку grafana  
-  копирую настройки подключения к prometheus из файла templates/prometheus.j2 в /etc/grafana/provisioning/datasources/prometheus.yml  
-  запускаем сервис  
-  жду поднятия сайта с помощью модуля ansible.builtin.uri, жду код 200  
-  далее устанавыливая пароль админа  
-  скачиваю дашбоар https://raw.githubusercontent.com/rfrail3/grafana-dashboards/master/prometheus/node-exporter-full.json  
-  копирую конфиг подключения дашбоарда из файла dashboard-node-exporter.yml.j2  
-  перезапуск grafana  
+  - добавляем рупозиторий grafana с помощью модуля  ansible.builtin.apt_repository  
+  - производим установку grafana  
+  - копирую настройки подключения к prometheus из файла templates/prometheus.j2 в /etc/grafana/provisioning/datasources/prometheus.yml  
+  - запускаем сервис  
+  - жду поднятия сайта с помощью модуля ansible.builtin.uri, жду код 200  
+  - далее устанавыливая пароль админа  
+  - скачиваю дашбоар https://raw.githubusercontent.com/rfrail3/grafana-dashboards/master/prometheus/node-exporter-full.json  
+  - копирую конфиг подключения дашбоарда из файла dashboard-node-exporter.yml.j2  
+  - перезапуск grafana  
 
 ### 7. Установка Gitlab CE и Gitlab Runner  
 
@@ -373,43 +384,43 @@ install_node_exporter
 
 ```
 роль  install_gitlab  
-  устаналивает для gitlab пакеты  
-    - curl
-    - openssh-server
-    - ca-certificates
-    - tzdata
-    - perl
-    - wget
-проверяю существование папки check_gitlab, если ее нет, то скачиваю скрипт с сайта gitlab  
-далее запускаю его  
-после этого устанавливаю gitlab-ce  
-задаю пароль в файле:  
+- устаналивает для gitlab пакеты  
+    - curl  
+    - openssh-server  
+    - ca-certificates  
+    - tzdata  
+    - perl  
+    - wget  
+- проверяю существование папки check_gitlab, если ее нет, то скачиваю скрипт с сайта gitlab  
+- далее запускаю его  
+- после этого устанавливаю gitlab-ce  
+- задаю пароль в файле:  
 ```yml
 path: /etc/gitlab/gitlab.rb
     regexp: "# gitlab_rails\\['initial_root_password'\\]"
     line: gitlab_rails['initial_root_password'] = "{{ gitlab_root_password }}"
 
 ```
-для доступа к gitlab из командной строки задаю token: 
+- для доступа к gitlab из командной строки задаю token: 
 ```yml
    path: /etc/gitlab/gitlab.rb
     regexp: "# gitlab_rails\\['initial_shared_runners_registration_token'\\]"
     line: gitlab_rails['initial_shared_runners_registration_token'] = "{{ reg_token_gitlab }}"
 ```
-в этом же файле /etc/gitlab/gitlab.rb прописываю адрес сайта external_url 'https://{{ domain_gitlab }}'  
+- в этом же файле /etc/gitlab/gitlab.rb прописываю адрес сайта external_url 'https://{{ domain_gitlab }}'  
 далее внес изменния, чтобы он за реверс прокси работал на 80 порту:  
 line: "nginx['listen_port'] = 80"  
 line: "nginx['listen_https'] = false"  
 
-после внесения изменений запускаю реконфигур  
+- после внесения изменений запускаю реконфигур  
 ```
 gitlab-ctl reconfigure
 ```
 
-далее в этой роли произвожу установку gitlab-runner  
-по аналогии с gitlab, скачиваю скрипт с сайта, запускаю скрипт, а затем устанапвливаю gitlab-runner из репозитория с помощью модуля ansible.builtin.apt  
-далее, чтобы при нескльких прогоназх роли не регистрировать не сколько раз runner, проверяю зарегистрирован ли раннер и результат записываю в переменную  
-если раннер не зарегистрирован, то регистрирую командой:  
+- далее в этой роли произвожу установку gitlab-runner  
+- по аналогии с gitlab, скачиваю скрипт с сайта, запускаю скрипт, а затем устанапвливаю gitlab-runner из репозитория с помощью модуля ansible.builtin.apt  
+- далее, чтобы при нескльких прогоназх роли не регистрировать не сколько раз runner, проверяю зарегистрирован ли раннер и результат записываю в переменную  
+- если раннер не зарегистрирован, то регистрирую командой:  
 ```
   command: "gitlab-runner register --non-interactive \
             --name 'shell-runner' \
@@ -418,7 +429,7 @@ gitlab-ctl reconfigure
             --tag-list 'dev_shell' \
             --run-untagged='true'"
 ``` 
-чтобы раннер мог подключаться к wordpress по ssh и что-то там выполнять, создаю ключи ssh для пользователя gitlab-runner и копирую их на машину с wordpress к пользователю ubuntu  
+- чтобы раннер мог подключаться к wordpress по ssh и что-то там выполнять, создаю ключи ssh для пользователя gitlab-runner и копирую их на машину с wordpress к пользователю ubuntu  
 ```
 openssh_keypair:
     path: /home/gitlab-runner/.ssh/id_rsa
@@ -427,11 +438,11 @@ openssh_keypair:
     state: present
 ```
 
-считываю публичный ключ в переменную source_rsa_key_encoded  
-чтобы считать переменную из таски, которая выполнялась для другой группы хостов использую  hostvars
+- считываю публичный ключ в переменную source_rsa_key_encoded  
+- чтобы считать переменную из таски, которая выполнялась для другой группы хостов использую  hostvars
 hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode  
 
-добавляю ключ пользователю ubuntu и выставляю правильные права  
+- добавляю ключ пользователю ubuntu и выставляю правильные права  
 ```
     path: "/home/ubuntu/.ssh/authorized_keys"
     line: "{{ source_rsa_key }}"
@@ -440,7 +451,7 @@ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode
   when:
     - inventory_hostname == 'app'
 ```
-чтобы при первом подключении не возникало сообщения о подтверждении, прописал на раннере настройку  
+- чтобы при первом подключении не возникало сообщения о подтверждении, прописал на раннере настройку  
 ```
   ansible.builtin.lineinfile:
     path: "/etc/ssh/ssh_config"
@@ -453,7 +464,7 @@ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode
 ```
 
 ### фалй inventory.tf  
-в этом файле создаю:
+в этом файле создаю:  
   prod.yml с хостами  
   содаю файл ansible/group_vars/all.yml в котором размещены переменные для ansible ролей  
   создаю ansible/files/proxy.conf конфигурация для apt для машин во внуртренней сети  
@@ -462,8 +473,6 @@ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode
   script/.gitlab-ci.yml - CI/CD скрипт  
 
  
-
-
 
 
 ### Ansible-роли:
@@ -476,7 +485,7 @@ hostvars['runner']['source_rsa_key_encoded']['content'] | b64decode
      - предназначен для установки софта на машины во внутренней части сети;
 3)  `mysql-install`:
     - установка mysql на машины db01.runnerultra.ru и db02.runnerultra.ru;  
-4)  здесь должна быть роль конфигурирования mysql master-slave, но она сейчас описана в виде tasks в основном yml-файле - site.yml;  
+4)  `master_slave` - настраивает 2 узла с mysql как master slave;  
 5) `php` :
     - установка необходимых компонентов php на машину app.runnerultra.ru для работы wordpress;  
 6) `nginx-wordpress`:
